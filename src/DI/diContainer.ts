@@ -1,71 +1,128 @@
 import { Container } from "typedi";
-import diConfig, { DiContainerListInterface } from "../diConfig";
-import { compose, filter, flatten, map, path, prop, uniq, intersection } from "ramda";
+import {
+  compose,
+  difference,
+  filter,
+  flatten,
+  map,
+  path,
+  uniq,
+  ifElse,
+  identity,
+} from "ramda";
 
-export interface BaseDiList {
-  [key: string]: any;
-}
-
-interface DiConfigParams {
-  [key: string]: {
+type DiConfigParams<T extends object> = {
+  [key in keyof T]: {
     class: {
-      new(...args: any[]): void;
-    },
-    parameters?: string[];
+      new (...args: any[]): T[key];
+    };
+    parameters?: (keyof T | string)[];
   };
-}
-
-export function makeDiConfig <T extends DiConfigParams>(config: T): T {
-  return config;
-}
+};
 
 // @ts-ignore
-const getInjectedParameters = (obj: object): string[] => compose(
-  uniq,
-  flatten as any,
-  filter(Boolean),
-  map(path(["1", "parameters"]) as any),
-  Object.entries
-)(obj);
+const getInjectedParameters = (obj: object): string[] =>
+  compose(
+    uniq,
+    filter((key: string) => isKeyTackedFromDi(key)) as any,
+    flatten as any,
+    filter(Boolean),
+    map(path(["1", "parameters"]) as any)
+  )(obj as any);
 
-export function buildContainer (di: DiConfigParams) {
-  const entries = Object.entries(di);
-  const dependencyKeys = entries.map(prop("0"));
-  const invalidDependencies = intersection(getInjectedParameters(entries), dependencyKeys);
-  if (invalidDependencies.length > 0) {
-    throw new Error(`This dependency is invalid [${invalidDependencies.join(", ")}]`);
-  }
-
-  const injectedList: string[] = [];
-  function inject (entriesList: any[], level = 10) {
-    if (level === 0) {
-      return;
-    }
-    entriesList.forEach(([key, injectable]) => {
-      if (!injectable.parameters || !injectable.parameters.length) {
-        Container.set(key, new injectable.class());
-        injectedList.push(key);
-        return;
-      }
-      if (injectable.parameters.some(param => !injectedList.includes(param))) {
-        return;
-      }
-      const resolvedParameters = injectable.parameters.map(param => Container.get(param))
-      Container.set(key, new injectable.class(...resolvedParameters));
-      injectedList.push(key);
-    });
-    const notResolvedList = entriesList.filter(el => !injectedList.includes(el[0]))
-    if (notResolvedList.length > 0) {
-      inject(notResolvedList, level - 1);
-    }
-    return;
-  }
-  inject(entries);
+function isKeyTackedFromDi(key: string): boolean {
+  return ["@", "#"].includes(key[0]);
+}
+function getDependKeyWithoutDiType(key: string) {
+  return key.slice(1);
 }
 
-export const diContainer = {
-  get: <KEY extends keyof typeof diConfig>(key: KEY): DiContainerListInterface[KEY] => {
-    // @ts-ignore
-    return Container.get(key);
+function injectClasses(entriesList: any[], injectedList: string[], level = 15) {
+  if (level === 0) {
+    return injectedList;
   }
-};
+  entriesList.forEach(([key, injectable]) => {
+    if (!injectable.parameters || !injectable.parameters.length) {
+      Container.set(key, new injectable.class());
+      injectedList.push(key);
+      return;
+    }
+    const someDependenciesNotResolved = injectable.parameters
+      .filter(isKeyTackedFromDi)
+      .some((param) => !injectedList.includes(param.slice(1)));
+    if (someDependenciesNotResolved) {
+      return;
+    }
+    const resolvedParameters = injectable.parameters.map((param: string) => {
+      if (isKeyTackedFromDi(param)) {
+        return Container.get(getDependKeyWithoutDiType(param));
+      }
+      return param;
+    });
+    Container.set(key, new injectable.class(...resolvedParameters));
+    injectedList.push(key);
+  });
+  const notResolvedList = entriesList.filter(
+    (el) => !injectedList.includes(el[0])
+  );
+  if (notResolvedList.length > 0) {
+    injectClasses(notResolvedList, injectedList, level - 1);
+  }
+  return injectedList;
+}
+
+function injectParams(entriesList: any[], injectedList: string[]): string[] {
+  entriesList.forEach(([key, param]) => {
+    Container.set(key, param);
+    injectedList.push(key);
+  });
+  return injectedList;
+}
+
+function getInvalidDependencies(classesEntries, paramsEntries) {
+  const classesKeys = classesEntries.map((el) => "@" + el[0]);
+  const paramsKeys = paramsEntries.map((el) => "#" + el[0]);
+
+  return difference(
+    getInjectedParameters([...classesEntries, ...paramsEntries]),
+    [...classesKeys, ...paramsKeys]
+  );
+}
+
+export function buildContainer<RESULT_TYPES extends object>(di: {
+  classes: DiConfigParams<RESULT_TYPES>;
+  params?: object;
+}) {
+  const classesEntries = Object.entries(di.classes);
+  const paramsEntries = Object.entries(di.params || {});
+
+  const invalidDependencies = getInvalidDependencies(
+    classesEntries,
+    paramsEntries
+  );
+  if (invalidDependencies.length > 0) {
+    throw new Error(
+      `This dependencies is invalid [${invalidDependencies.join(", ")}]`
+    );
+  }
+
+  compose(
+    ifElse(
+      () => !!di.classes,
+      (injectedList) => injectClasses(classesEntries, injectedList),
+      identity
+    ),
+    ifElse(
+      () => !!di.params,
+      (injectedList) => injectParams(paramsEntries, injectedList),
+      identity
+    )
+  )([] as string[]);
+
+  return {
+    get: <KEY extends keyof RESULT_TYPES>(key: KEY): RESULT_TYPES[KEY] => {
+      // @ts-ignore
+      return Container.get(key);
+    },
+  };
+}

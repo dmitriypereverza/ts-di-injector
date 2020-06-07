@@ -8,17 +8,19 @@ export interface StringServiceInterface {
 
 export class TestService implements TextServiceInterface {
   private stringService: StringService;
-  constructor (stringService: StringService) {
+  private apiKey;
+  constructor(stringService: StringService, apiKey) {
     this.stringService = stringService;
+    this.apiKey = apiKey;
   }
 
-  public hello (): string {
-    return this.stringService.makeTest();
+  public hello(): string {
+    return this.apiKey;
   }
 }
 
 export class StringService implements StringServiceInterface {
-  public makeTest (): string {
+  public makeTest(): string {
     return "Hello2!!!";
   }
 }

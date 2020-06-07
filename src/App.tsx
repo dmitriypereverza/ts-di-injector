@@ -1,7 +1,7 @@
 import React from "react";
 import { pureConnect } from "./DI/pureConnect";
 import { TextServiceInterface } from "./Services";
-import { diContainer } from "./DI/diContainer";
+import diContainer from "./di";
 
 const App = ({ textService }: { textService: TextServiceInterface }) => {
   return <div>{textService.hello()}</div>;
