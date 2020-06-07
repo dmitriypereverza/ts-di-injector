@@ -1,17 +1,18 @@
+import { buildContainer } from "./DI/diContainer";
+
 import {
   StringService,
   StringServiceInterface,
   TestService,
   TextServiceInterface,
 } from "./Services";
-import { buildContainer } from "./DI/diContainer";
 
 export default buildContainer<{
   textService: TextServiceInterface;
   stringService: StringServiceInterface;
 }>({
   params: {
-    apiKey: 7771,
+    apiKey: "dfse3dwedc2342ecd3wda",
   },
   classes: {
     textService: {

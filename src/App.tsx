@@ -4,7 +4,7 @@ import { TextServiceInterface } from "./Services";
 import diContainer from "./di";
 
 const App = ({ textService }: { textService: TextServiceInterface }) => {
-  return <div>{textService.hello()}</div>;
+  return <div>{textService.getText()}</div>;
 };
 
 export default pureConnect(() => ({

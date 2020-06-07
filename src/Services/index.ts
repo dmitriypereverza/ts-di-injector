@@ -1,26 +1,24 @@
 export interface TextServiceInterface {
-  hello(): string;
+  getText(): string;
 }
-
-export interface StringServiceInterface {
-  makeTest(): string;
-}
-
 export class TestService implements TextServiceInterface {
   private stringService: StringService;
-  private apiKey;
+  private apiKey: string;
   constructor(stringService: StringService, apiKey) {
     this.stringService = stringService;
     this.apiKey = apiKey;
   }
 
-  public hello(): string {
-    return this.apiKey;
+  public getText(): string {
+    return `Text: ${this.stringService.makeText()} Key: ${this.apiKey}`;
   }
 }
 
+export interface StringServiceInterface {
+  makeText(): string;
+}
 export class StringService implements StringServiceInterface {
-  public makeTest(): string {
-    return "Hello2!!!";
+  public makeText(): string {
+    return "Text from StringService.";
   }
 }
