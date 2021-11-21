@@ -1,5 +1,5 @@
 import React from "react";
-import { pureConnect } from "./DI/pureConnect";
+import { pureConnect } from "src/pureConnect";
 import { TextServiceInterface } from "./Services";
 import diContainer from "./di";
 

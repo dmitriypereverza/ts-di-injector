@@ -1,17 +1,16 @@
-import { Container } from "typedi";
-import {
-  compose,
-  difference,
-  filter,
-  flatten,
-  map,
-  path,
-  uniq,
-  ifElse,
-  identity,
-} from "ramda";
+import compose from "ramda/es/compose";
+import difference from "ramda/es/difference";
+import filter from "ramda/es/filter";
+import flatten from "ramda/es/flatten";
+import map from "ramda/es/map";
+import path from "ramda/es/path";
+import uniq from "ramda/es/uniq";
+import ifElse from "ramda/es/ifElse";
+import identity from "ramda/es/identity";
 
-type DiConfigParams<T extends object> = {
+let diContainer: Record<string, any> = {};
+
+type DiConfigParams<T extends Record<string, any>> = {
   [key in keyof T]: {
     class: {
       new (...args: any[]): T[key];
@@ -24,7 +23,7 @@ type DiConfigParams<T extends object> = {
 const getInjectedParameters = (obj: object): string[] =>
   compose(
     uniq,
-    filter((key: string) => isKeyTackedFromDi(key)) as any,
+    filter(isKeyTackedFromDi) as any,
     flatten as any,
     filter(Boolean),
     map(path(["1", "parameters"]) as any)
@@ -43,7 +42,7 @@ function injectClasses(entriesList: any[], injectedList: string[], level = 15) {
   }
   entriesList.forEach(([key, injectable]) => {
     if (!injectable.parameters || !injectable.parameters.length) {
-      Container.set(key, new injectable.class());
+      diContainer[key] = new injectable.class();
       injectedList.push(key);
       return;
     }
@@ -55,11 +54,11 @@ function injectClasses(entriesList: any[], injectedList: string[], level = 15) {
     }
     const resolvedParameters = injectable.parameters.map((param: string) => {
       if (isKeyTackedFromDi(param)) {
-        return Container.get(getDependKeyWithoutDiType(param));
+        return diContainer[getDependKeyWithoutDiType(param)];
       }
       return param;
     });
-    Container.set(key, new injectable.class(...resolvedParameters));
+    diContainer[key] = new injectable.class(...resolvedParameters);
     injectedList.push(key);
   });
   const notResolvedList = entriesList.filter(
@@ -73,7 +72,7 @@ function injectClasses(entriesList: any[], injectedList: string[], level = 15) {
 
 function injectParams(entriesList: any[], injectedList: string[]): string[] {
   entriesList.forEach(([key, param]) => {
-    Container.set(key, param);
+    diContainer[key] = param;
     injectedList.push(key);
   });
   return injectedList;
@@ -89,7 +88,7 @@ function getInvalidDependencies(classesEntries, paramsEntries) {
   );
 }
 
-export function buildContainer<RESULT_TYPES extends object>(di: {
+export function buildContainer<RESULT_TYPES extends Record<string, any>>(di: {
   classes: DiConfigParams<RESULT_TYPES>;
   params?: object;
 }) {
@@ -122,7 +121,7 @@ export function buildContainer<RESULT_TYPES extends object>(di: {
   return {
     get: <KEY extends keyof RESULT_TYPES>(key: KEY): RESULT_TYPES[KEY] => {
       // @ts-ignore
-      return Container.get(key);
+      return diContainer[key];
     },
   };
 }

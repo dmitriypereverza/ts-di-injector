@@ -1,0 +1,11 @@
+{
+  "name": "ts-di-injector",
+  "version": "0.1.3",
+  "description": "",
+  "main": "diContainer.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Dmitry Pereverza (disel920@gmail.com)",
+  "license": "ISC"
+}
